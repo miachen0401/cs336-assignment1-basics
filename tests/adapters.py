@@ -596,10 +596,11 @@ def run_train_bpe(
     with open(input_path, "r", encoding="utf-8") as f:
         text = f.read()
 
-    BPE = BPETokenizer(vocab_size, text)
+    BPE = BPETokenizer(vocab_size, text, special_tokens)
     vocab, merges = BPE.train()
 
-    for i in range(n):
-        vocab[i+len(vocab)] = special_tokens[i].encode("utf-8")
+    start = len(vocab)
+    for i, tok in enumerate(special_tokens):
+        vocab[start + i] = tok.encode("utf-8")
 
     return vocab, merges
