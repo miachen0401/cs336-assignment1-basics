@@ -592,12 +592,10 @@ def run_train_bpe(
     n = len(special_tokens)
     vocab_size -= n
 
-    from cs336_basics.train_bpe import BPETokenizer
-    with open(input_path, "r", encoding="utf-8") as f:
-        text = f.read()
+    from cs336_basics.BPE_new import BPETokenizer
 
-    BPE = BPETokenizer(vocab_size, text, special_tokens)
-    vocab, merges = BPE.train()
+    BPE = BPETokenizer(vocab_size, input_path, special_tokens)
+    vocab, merges = BPE.train_BPE()
 
     start = len(vocab)
     for i, tok in enumerate(special_tokens):
