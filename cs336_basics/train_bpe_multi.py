@@ -85,9 +85,9 @@ class BPETokenizer:
 
     def stream_freq_table_mp(
         self,
-        chunk_size: int = 256 * 1024 * 1024,
+        chunk_size: int = 128 * 1024 * 1024,
         batch_docs: int = 5000,
-        pretoken_workers: int = 12,
+        pretoken_workers: int = 4,
     ) -> CounterType[bytes]:
         """
         Stream the file, split by <|endoftext|> (document delimiter), and
@@ -291,7 +291,7 @@ class BPETokenizer:
         self,
         chunk_size: int = 256 * 1024 * 1024,
         batch_docs: int = 5000,
-        pretoken_workers: int = 12,
+        pretoken_workers: int = 4,
     ) -> Tuple[Dict[int, bytes], List[Tuple[bytes, bytes]]]:
         """
         Train BPE up to self.vocab_size using:
@@ -382,7 +382,7 @@ class BPETokenizer:
 
 
 if __name__ == "__main__":
-    input_path = "data/TinyStoriesV2-GPT4-train.txt"
+    input_path = "data/TinyStoriesV2-GPT4-valid.txt"
     special_tokens = ["<|endoftext|>"]
 
     bpe = BPETokenizer(

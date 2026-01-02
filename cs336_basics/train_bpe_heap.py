@@ -2,13 +2,14 @@ import heapq
 from collections import Counter
 from typing import Optional, List, Tuple, Dict, Set
 import regex as re
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 PATTERN = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 
 class BPETokenizer:
     def __init__(self, vocab_size: int = 10_000, input_path: str = "", special_tokens: List[str] = None):
-        self.vocab_size = vocab_size
+        self.vocab_size = vocab_size - len(special_tokens) if special_tokens else vocab_size
         self.input_path = input_path
         self.special_tokens = special_tokens
 
@@ -21,6 +22,8 @@ class BPETokenizer:
 
         self.vocab = {i: bytes([i]) for i in range(256)}
         self.merges: List[Tuple[bytes, bytes]] = []
+
+        self.count = 0
     
     def _bytes_to_tuple(self, freq_table: Counter[bytes:int]):
         for b, f in freq_table.items():
@@ -32,12 +35,10 @@ class BPETokenizer:
     def _covert_tuple(self, pair: Tuple[int, int]):
         return tuple(-p for p in pair)
 
-    def invert_bytes(self, b: bytes) -> tuple[int, ...]:
-        return tuple(255 - x for x in b)
-
-    def _heappush(self, pair: Tuple[int, int], count: int):
-        heapq.heappush(self.maxheap, (-count, pair[0], pair[1], pair))
-        return
+    def invert_bytes(self, b: bytes, l: int = 3) -> tuple[int, ...]:
+        b = [255 - x for x in b]
+        b.extend([255] * (l - len(b)))
+        return tuple(b)
 
     def _heappush(self, pair: tuple[int, int], count: int):
         b0 = self.vocab[pair[0]]
@@ -51,14 +52,17 @@ class BPETokenizer:
     def _heappop(self):
         while True:
             neg_count, p0, p1, pair = heapq.heappop(self.maxheap)
-            #pair = self._covert_tuple(pair)
             count = - neg_count
             if count == self.pair_counts.get(pair, 0):
                 break
+        self.count += 1
+        if 95 < self.count < 120:
+            tmp = self.vocab[pair[0]] + self.vocab[pair[1]]
+            print(count, p0, p1, pair, tmp)
         return count, pair
 
 
-    def chunk_text(self, chunk_size: int = 256 * 1024 * 1024, 
+    def chunk_text(self, chunk_size: int = 128 * 1024 * 1024, 
                     n_workers = 4):
         with open(self.input_path, "r", encoding="utf-8") as f:
             chunk_text = f.read()
@@ -71,8 +75,6 @@ class BPETokenizer:
         else:
             segments = [chunk_text]
             
-        parts = [m.group(0) for m in re.finditer(PATTERN, chunk_text)]
-
         for seg in segments:
             for m in re.finditer(PATTERN, seg):
                 part = m.group(0)
@@ -100,10 +102,10 @@ class BPETokenizer:
 
             word_freq = self.freq_table[word]
 
-            for i in range(len(word) - 1):
-                old_pair = (word[i], word[i + 1])
+            for t in range(len(word) - 1):
+                old_pair = (word[t], word[t + 1])
                 self.pair_counts[old_pair] -= word_freq
-            
+
             del self.freq_table[word]
 
             new_word = []
@@ -150,13 +152,21 @@ class BPETokenizer:
         for i in range(256, self.vocab_size):
             self.iter_BPE(i)
         
+        for i, tok in enumerate(self.special_tokens):
+            self.vocab[self.vocab_size + i] = tok.encode("utf-8")
+        
         return self.vocab, self.merges
     
 
 
 if __name__ == "__main__":
-    bpe = BPETokenizer(vocab_size=258, input_path="../text.txt")
+
+    input_path = "data/TinyStoriesV2-GPT4-valid.txt"
+    special_tokens = ["<|endoftext|>"]
+
+    bpe = BPETokenizer(vocab_size=10_000, input_path=input_path, special_tokens=special_tokens)
     vocab, merges = bpe.train_BPE()
+ 
     print(len(vocab))
-    print(merges)
+    print(merges[:32])
 
